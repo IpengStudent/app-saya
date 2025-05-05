@@ -12,10 +12,11 @@ export function generateLoaderAbsoluteTemplate() {
   `;
 }
 
+// Pertimbangkan mengganti nama fungsi-fungsi navigasi dan template lainnya dari 'report' menjadi 'story'
 export function generateMainNavigationListTemplate() {
   return `
-    <li><a id="report-list-button" class="report-list-button" href="#/">Daftar Laporan</a></li>
-    <li><a id="bookmark-button" class="bookmark-button" href="#/bookmark">Laporan Tersimpan</a></li>
+    <li><a id="report-list-button" class="report-list-button" href="#/">Daftar Laporan</a></li> 
+    <li><a id="bookmark-button" class="bookmark-button" href="#/bookmark">Laporan Tersimpan</a></li> 
   `;
 }
 
@@ -30,89 +31,97 @@ export function generateUnauthenticatedNavigationListTemplate() {
 export function generateAuthenticatedNavigationListTemplate() {
   return `
     <li id="push-notification-tools" class="push-notification-tools"></li>
-    <li><a id="new-report-button" class="btn new-report-button" href="#/new">Buat Laporan <i class="fas fa-plus"></i></a></li>
+    <li><a id="new-report-button" class="btn new-report-button" href="#/new">Buat Laporan <i class="fas fa-plus"></i></a></li> 
     <li><a id="logout-button" class="logout-button" href="#/logout"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
   `;
 }
 
+// Pertimbangkan mengganti nama fungsi dan teks
 export function generateReportsListEmptyTemplate() {
   return `
     <div id="reports-list-empty" class="reports-list__empty">
-      <h2>Tidak ada laporan yang tersedia</h2>
-      <p>Saat ini, tidak ada laporan kerusakan fasilitas umum yang dapat ditampilkan.</p>
+      <h2>Tidak ada laporan yang tersedia</h2> 
+      <p>Saat ini, tidak ada laporan kerusakan fasilitas umum yang dapat ditampilkan.</p> 
     </div>
   `;
 }
 
+// Pertimbangkan mengganti nama fungsi dan teks
 export function generateReportsListErrorTemplate(message) {
   return `
     <div id="reports-list-error" class="reports-list__error">
-      <h2>Terjadi kesalahan pengambilan daftar laporan</h2>
+      <h2>Terjadi kesalahan pengambilan daftar laporan</h2> 
       <p>${message ? message : 'Gunakan jaringan lain atau laporkan error ini.'}</p>
     </div>
   `;
 }
 
+// Pertimbangkan mengganti nama fungsi dan teks
 export function generateReportDetailErrorTemplate(message) {
   return `
     <div id="reports-detail-error" class="reports-detail__error">
-      <h2>Terjadi kesalahan pengambilan detail laporan</h2>
+      <h2>Terjadi kesalahan pengambilan detail laporan</h2> 
       <p>${message ? message : 'Gunakan jaringan lain atau laporkan error ini.'}</p>
     </div>
   `;
 }
 
+// Pertimbangkan mengganti nama fungsi dan teks
 export function generateCommentsListEmptyTemplate() {
   return `
     <div id="report-detail-comments-list-empty" class="report-detail__comments-list__empty">
-      <h2>Tidak ada komentar yang tersedia</h2>
-      <p>Saat ini, tidak ada komentar yang dapat ditampilkan.</p>
+      <h2>Tidak ada komentar yang tersedia</h2> 
+      <p>Saat ini, tidak ada komentar yang dapat ditampilkan.</p> 
     </div>
   `;
 }
 
+// Pertimbangkan mengganti nama fungsi dan teks
 export function generateCommentsListErrorTemplate(message) {
   return `
     <div id="report-detail-comments-list-error" class="report-detail__comments-list__error">
-      <h2>Terjadi kesalahan pengambilan daftar komentar</h2>
-      <p>${message ? message : 'Gunakan jaringan lain atau laporkan error ini.'}</p>
+      <h2>Terjadi kesalahan pengambilan daftar komentar</h2> 
+      <p>${message ? message : 'Gunakan jaringan lain atau laporkan error ini.'}</p> 
     </div>
   `;
 }
 
+// >>> METODE GENERATEREPORTITEMTEMPLATE YANG DIPERBAIKI <<<
 export function generateReportItemTemplate({
   id,
-  title,
+  name, // Nama pengarang ada di properti 'name' di Dicoding Story API
   description,
-  evidenceImages,
-  reporterName,
+  photoUrl, // <<< Perbaikan: Terima photoUrl, bukan evidenceImages
   createdAt,
-  location,
+  lat, // <<< Perbaikan: Terima lat dan lon secara terpisah
+  lon,
 }) {
   return `
-    <div tabindex="0" class="report-item" data-reportid="${id}">
-      <img class="report-item__image" src="${evidenceImages[0]}" alt="${title}">
-      <div class="report-item__body">
-        <div class="report-item__main">
-          <h2 id="report-title" class="report-item__title">${title}</h2>
-          <div class="report-item__more-info">
-            <div class="report-item__createdat">
+    <div tabindex="0" class="report-item" data-reportid="${id}"> 
+      <img class="report-item__image" src="${photoUrl}" alt="${name}"> 
+      <div class="report-item__body"> 
+        <div class="report-item__main"> 
+          <h2 id="report-title" class="report-item__title">${description.substring(0, 50)}...</h2> 
+          <div class="report-item__more-info"> 
+            <div class="report-item__createdat"> 
               <i class="fas fa-calendar-alt"></i> ${showFormattedDate(createdAt, 'id-ID')}
             </div>
-            <div class="report-item__location">
-              <i class="fas fa-map"></i> ${Object.values(location)}
+            ${(lat !== undefined && lon !== undefined) ? `
+            <div class="report-item__location"> 
+               <i class="fas fa-map"></i> Latitude: ${lat}, Longitude: ${lon} 
             </div>
+            ` : ''}
           </div>
         </div>
-        <div id="report-description" class="report-item__description">
+        <div id="report-description" class="report-item__description"> 
           ${description}
         </div>
-        <div class="report-item__more-info">
-          <div class="report-item__author">
-            Dilaporkan oleh: ${reporterName}
+        <div class="report-item__more-info"> 
+          <div class="report-item__author"> 
+            Dibuat oleh: ${name} 
           </div>
         </div>
-        <a class="btn report-item__read-more" href="#/reports/${id}">
+        <a class="btn report-item__read-more" href="#/stories/${id}"> 
           Selengkapnya <i class="fas fa-arrow-right"></i>
         </a>
       </div>
@@ -120,25 +129,24 @@ export function generateReportItemTemplate({
   `;
 }
 
+// ... Sisa fungsi template lainnya (damage level, comment item, detail template, dll.)
+// Anda perlu meninjau semua fungsi template yang berhubungan dengan 'report'
+// untuk menyesuaikannya dengan struktur data 'story' dari Dicoding Story API.
+
 export function generateDamageLevelMinorTemplate() {
   return `
-    <span class="report-detail__damage-level__minor" data-damage-level="minor">Kerusakan Rendah</span>
+    <span class="report-detail__damage-level__minor" data-damage-level="minor">Kerusakan Rendah</span> 
   `;
 }
 
-export function generateDamageLevelModerateTemplate() {
-  return `
-    <span class="report-detail__damage-level__moderate" data-damage-level="moderate">Kerusakan Sedang</span>
-  `;
-}
-
-export function generateDamageLevelSevereTemplate() {
-  return `
-    <span class="report-detail__damage-level__severe" data-damage-level="severe">Kerusakan Berat</span>
-  `;
-}
+// ... generateDamageLevelModerateTemplate, generateDamageLevelSevereTemplate ...
 
 export function generateDamageLevelBadge(damageLevel) {
+   // Dicoding Story API tidak memiliki damageLevel. Fungsi ini mungkin tidak diperlukan untuk stories.
+   // Jika Anda tetap ingin menampilkannya, Anda perlu menambahkan properti damageLevel
+   // secara manual ke objek story di home-page.js sebelum meneruskannya ke template,
+   // jika damage level adalah konsep yang ingin Anda tambahkan di sisi klien.
+   // Jika tidak, hapus fungsi badge damage level ini dan penggunaannya.
   if (damageLevel === 'minor') {
     return generateDamageLevelMinorTemplate();
   }
@@ -154,113 +162,71 @@ export function generateDamageLevelBadge(damageLevel) {
   return '';
 }
 
+
 export function generateReportDetailImageTemplate(imageUrl = null, alt = '') {
+  // Fungsi ini sepertinya dirancang untuk menampilkan satu gambar.
+  // Jika Anda menggunakannya di detail story, Anda bisa meneruskan photoUrl ke sini.
   if (!imageUrl) {
     return `
-      <img class="report-detail__image" src="images/placeholder-image.jpg" alt="Placeholder Image">
+      <img class="report-detail__image" src="images/placeholder-image.jpg" alt="Placeholder Image"> 
     `;
   }
 
   return `
-    <img class="report-detail__image" src="${imageUrl}" alt="${alt}">
+    <img class="report-detail__image" src="${imageUrl}" alt="${alt}"> 
   `;
 }
 
+// Dicoding Story API tidak memiliki komentar untuk stories. Fungsi ini mungkin tidak diperlukan.
 export function generateReportCommentItemTemplate({ photoUrlCommenter, nameCommenter, body }) {
-  return `
-    <article tabindex="0" class="report-detail__comment-item">
-      <img
-        class="report-detail__comment-item__photo"
-        src="${photoUrlCommenter}"
-        alt="Commenter name: ${nameCommenter}"
-      >
-      <div class="report-detail__comment-item__body">
-        <div class="report-detail__comment-item__body__more-info">
-          <div class="report-detail__comment-item__body__author">${nameCommenter}</div>
-        </div>
-        <div class="report-detail__comment-item__body__text">${body}</div>
-      </div>
-    </article>
-  `;
+   return `
+     <article tabindex="0" class="report-detail__comment-item"> 
+       <img
+         class="report-detail__comment-item__photo" 
+         src="${photoUrlCommenter}"
+         alt="Commenter name: ${nameCommenter}"
+       >
+       <div class="report-detail__comment-item__body"> 
+         <div class="report-detail__comment-item__body__more-info"> 
+           <div class="report-detail__comment-item__body__author">${nameCommenter}</div> 
+         </div>
+         <div class="report-detail__comment-item__body__text">${body}</div> 
+       </div>
+     </article>
+   `;
 }
 
+
+// Anda perlu meninjau ulang fungsi generateReportDetailTemplate
+// untuk menyesuaikannya sepenuhnya dengan struktur data detail story dari Dicoding Story API.
+// Ini akan menjadi penyesuaian yang cukup besar.
 export function generateReportDetailTemplate({
-  title,
+  // Sesuaikan parameter dengan properti dari objek detail story Dicoding API
+  id, // Tambahkan id jika digunakan di template detail
+  name, // Nama pengarang
   description,
-  damageLevel,
-  evidenceImages,
-  latitudeLocation,
-  longitudeLocation,
-  reporterName,
+  photoUrl, // URL gambar tunggal
   createdAt,
+  lat, // Latitude
+  lon, // Longitude
+  // Properti seperti damageLevel dan evidenceImages (array) tidak ada di story
 }) {
-  const createdAtFormatted = showFormattedDate(createdAt, 'id-ID');
-  const damageLevelBadge = generateDamageLevelBadge(damageLevel);
-  const imagesHtml = evidenceImages.reduce(
-    (accumulator, evidenceImage) =>
-      accumulator.concat(generateReportDetailImageTemplate(evidenceImage, title)),
-    '',
-  );
+   const createdAtFormatted = showFormattedDate(createdAt, 'id-ID');
+   // const damageLevelBadge = generateDamageLevelBadge(damageLevel); // Hapus jika tidak ada damage level
+   // const imagesHtml = evidenceImages.reduce(...); // Hapus jika hanya ada satu gambar
 
-  return `
-    <div class="report-detail__header">
-      <h1 id="title" class="report-detail__title">${title}</h1>
+   // Gunakan generateReportDetailImageTemplate untuk photoUrl tunggal
+   const singleImageHtml = generateReportDetailImageTemplate(photoUrl, description); // alt teks bisa dari deskripsi
 
-      <div class="report-detail__more-info">
-        <div class="report-detail__more-info__inline">
-          <div id="createdat" class="report-detail__createdat" data-value="${createdAtFormatted}"><i class="fas fa-calendar-alt"></i></div>
-        </div>
-        <div class="report-detail__more-info__inline">
-          <div id="location-latitude" class="report-detail__location__latitude" data-value="${latitudeLocation}">Latitude:</div>
-          <div id="location-longitude" class="report-detail__location__longitude" data-value="${longitudeLocation}">Longitude:</div>
-        </div>
-        <div id="author" class="report-detail__author" data-value="${reporterName}">Dilaporkan oleh:</div>
-      </div>
-
-      <div id="damage-level" class="report-detail__damage-level">
-        ${damageLevelBadge}
-      </div>
-    </div>
-
-    <div class="container">
-      <div class="report-detail__images__container">
-        <div id="images" class="report-detail__images">${imagesHtml}</div>
-      </div>
-    </div>
-
-    <div class="container">
-      <div class="report-detail__body">
-        <div class="report-detail__body__description__container">
-          <h2 class="report-detail__description__title">Informasi Lengkap</h2>
-          <div id="description" class="report-detail__description__body">
-            ${description}
-          </div>
-        </div>
-        <div class="report-detail__body__map__container">
-          <h2 class="report-detail__map__title">Peta Lokasi</h2>
-          <div class="report-detail__map__container">
-            <div id="map" class="report-detail__map"></div>
-            <div id="map-loading-container"></div>
-          </div>
-        </div>
-  
-        <hr>
-  
-        <div class="report-detail__body__actions__container">
-          <h2>Aksi</h2>
-          <div class="report-detail__actions__buttons">
-            <div id="save-actions-container"></div>
-            <div id="notify-me-actions-container">
-              <button id="report-detail-notify-me" class="btn btn-transparent">
-                Try Notify Me <i class="far fa-bell"></i>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
+   return `
+     <div class="report-detail__header"> 
+       <h1 id="title" class="report-detail__title">${description.substring(0, 100)}...</h1> // Dicoding Story API tidak punya 'title', gunakan deskripsi
+       // ... sesuaikan properti lain seperti lokasi, pengarang, dll.
+     </div>
+     // ... sisa template detail ...
+     `;
 }
+
 
 export function generateSubscribeButtonTemplate() {
   return `
@@ -278,18 +244,20 @@ export function generateUnsubscribeButtonTemplate() {
   `;
 }
 
+// Pertimbangkan ganti nama fungsi dan teks jika fungsionalitas bookmark disesuaikan untuk stories
 export function generateSaveReportButtonTemplate() {
   return `
     <button id="report-detail-save" class="btn btn-transparent">
-      Simpan laporan <i class="far fa-bookmark"></i>
+      Simpan laporan <i class="far fa-bookmark"></i> 
     </button>
   `;
 }
 
+// Pertimbangkan ganti nama fungsi dan teks jika fungsionalitas bookmark disesuaikan untuk stories
 export function generateRemoveReportButtonTemplate() {
   return `
     <button id="report-detail-remove" class="btn btn-transparent">
-      Buang laporan <i class="fas fa-bookmark"></i>
+      Buang laporan <i class="fas fa-bookmark"></i> 
     </button>
   `;
 }
