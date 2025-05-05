@@ -5,25 +5,20 @@ const ENDPOINTS = {
   // Auth
   REGISTER: `${BASE_URL}/register`,
   LOGIN: `${BASE_URL}/login`,
-  MY_USER_INFO: `${BASE_URL}/users/me`,
+  // Dicoding Story API does not have a /users/me endpoint
 
-  // Report
-  REPORT_LIST: `${BASE_URL}/reports`,
-  REPORT_DETAIL: (id) => `${BASE_URL}/reports/${id}`,
-  STORE_NEW_REPORT: `${BASE_URL}/reports`,
+  // Story
+  GET_ALL_STORIES: `${BASE_URL}/stories`,
+  GET_STORY_DETAIL: (id) => `${BASE_URL}/stories/${id}`,
+  ADD_NEW_STORY: `${BASE_URL}/stories`,
+  ADD_NEW_GUEST_STORY: `${BASE_URL}/stories/guest`,
 
-  // Report Comment
-  REPORT_COMMENTS_LIST: (reportId) => `${BASE_URL}/reports/${reportId}/comments`,
-  STORE_NEW_REPORT_COMMENT: (reportId) => `${BASE_URL}/reports/${reportId}/comments`,
+  // Dicoding Story API does not have endpoints for reports or comments
 
-  // Report Comment
+  // Push Notification
   SUBSCRIBE: `${BASE_URL}/notifications/subscribe`,
   UNSUBSCRIBE: `${BASE_URL}/notifications/subscribe`,
-  SEND_REPORT_TO_ME: (reportId) => `${BASE_URL}/reports/${reportId}/notify-me`,
-  SEND_REPORT_TO_USER: (reportId) => `${BASE_URL}/reports/${reportId}/notify`,
-  SEND_REPORT_TO_ALL_USER: (reportId) => `${BASE_URL}/reports/${reportId}/notify-all`,
-  SEND_COMMENT_TO_REPORT_OWNER: (reportId, commentId) =>
-    `${BASE_URL}/reports/${reportId}/comments/${commentId}/notify`,
+  // Specific notification endpoints for reports/comments are not in Dicoding Story API
 };
 
 export async function getRegistered({ name, email, password }) {
@@ -58,10 +53,42 @@ export async function getLogin({ email, password }) {
   };
 }
 
-export async function getMyUserInfo() {
-  const accessToken = getAccessToken();
+// This function is removed as Dicoding Story API does not have a /users/me endpoint
+// export async function getMyUserInfo() {
+//   const accessToken = getAccessToken();
+//
+//   const fetchResponse = await fetch(ENDPOINTS.MY_USER_INFO, {
+//     headers: { Authorization: `Bearer ${accessToken}` },
+//   });
+//   const json = await fetchResponse.json();
+//
+//   return {
+//     ...json,
+//     ok: fetchResponse.ok,
+//   };
+// }
 
-  const fetchResponse = await fetch(ENDPOINTS.MY_USER_INFO, {
+
+export async function getAllStories(params = {}) {
+  const accessToken = getAccessToken();
+  if (!accessToken) {
+      // Handle case where token is not available, maybe redirect to login or fetch without auth if allowed
+      console.error("Access token not available for getAllStories");
+      // Depending on requirement, you might want to return an error or handle differently
+       // For Dicoding Story API, GET /stories requires auth
+      return { error: true, message: "Authentication required" };
+  }
+
+  const url = new URL(ENDPOINTS.GET_ALL_STORIES);
+
+  // Add optional parameters if provided
+  Object.keys(params).forEach(key => {
+    if (params[key] !== undefined) {
+      url.searchParams.append(key, params[key]);
+    }
+  });
+
+  const fetchResponse = await fetch(url, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   const json = await fetchResponse.json();
@@ -72,10 +99,15 @@ export async function getMyUserInfo() {
   };
 }
 
-export async function getAllReports() {
+export async function getStoryById(id) {
   const accessToken = getAccessToken();
+   if (!accessToken) {
+       console.error("Access token not available for getStoryById");
+       // For Dicoding Story API, GET /stories/:id requires auth
+       return { error: true, message: "Authentication required" };
+   }
 
-  const fetchResponse = await fetch(ENDPOINTS.REPORT_LIST, {
+  const fetchResponse = await fetch(ENDPOINTS.GET_STORY_DETAIL(id), {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   const json = await fetchResponse.json();
@@ -86,43 +118,30 @@ export async function getAllReports() {
   };
 }
 
-export async function getReportById(id) {
+export async function addNewStory({ description, photo, lat, lon }) {
   const accessToken = getAccessToken();
-
-  const fetchResponse = await fetch(ENDPOINTS.REPORT_DETAIL(id), {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  const json = await fetchResponse.json();
-
-  return {
-    ...json,
-    ok: fetchResponse.ok,
-  };
-}
-
-export async function storeNewReport({
-  title,
-  damageLevel,
-  description,
-  evidenceImages,
-  latitude,
-  longitude,
-}) {
-  const accessToken = getAccessToken();
+  if (!accessToken) {
+      console.error("Access token not available for addNewStory");
+      return { error: true, message: "Authentication required" };
+  }
 
   const formData = new FormData();
-  formData.set('title', title);
-  formData.set('damageLevel', damageLevel);
   formData.set('description', description);
-  formData.set('latitude', latitude);
-  formData.set('longitude', longitude);
-  evidenceImages.forEach((evidenceImage) => {
-    formData.append('evidenceImages', evidenceImage);
-  });
+  formData.append('photo', photo); // 'photo' key as per API docs
 
-  const fetchResponse = await fetch(ENDPOINTS.STORE_NEW_REPORT, {
+  if (lat !== undefined) {
+    formData.set('lat', lat);
+  }
+  if (lon !== undefined) {
+    formData.set('lon', lon);
+  }
+
+  const fetchResponse = await fetch(ENDPOINTS.ADD_NEW_STORY, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: {
+      // Content-Type: 'multipart/form-data' header is automatically set by the browser when using FormData
+      Authorization: `Bearer ${accessToken}`,
+    },
     body: formData,
   });
   const json = await fetchResponse.json();
@@ -133,31 +152,22 @@ export async function storeNewReport({
   };
 }
 
-export async function getAllCommentsByReportId(reportId) {
-  const accessToken = getAccessToken();
+export async function addNewGuestStory({ description, photo, lat, lon }) {
+  const formData = new FormData();
+  formData.set('description', description);
+  formData.append('photo', photo); // 'photo' key as per API docs
 
-  const fetchResponse = await fetch(ENDPOINTS.REPORT_COMMENTS_LIST(reportId), {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  const json = await fetchResponse.json();
+  if (lat !== undefined) {
+    formData.set('lat', lat);
+  }
+  if (lon !== undefined) {
+    formData.set('lon', lon);
+  }
 
-  return {
-    ...json,
-    ok: fetchResponse.ok,
-  };
-}
-
-export async function storeNewCommentByReportId(reportId, { body }) {
-  const accessToken = getAccessToken();
-  const data = JSON.stringify({ body });
-
-  const fetchResponse = await fetch(ENDPOINTS.STORE_NEW_REPORT_COMMENT(reportId), {
+  const fetchResponse = await fetch(ENDPOINTS.ADD_NEW_GUEST_STORY, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${accessToken}`,
-    },
-    body: data,
+     // Content-Type: 'multipart/form-data' header is automatically set by the browser when using FormData
+    body: formData,
   });
   const json = await fetchResponse.json();
 
@@ -167,8 +177,21 @@ export async function storeNewCommentByReportId(reportId, { body }) {
   };
 }
 
+
+// Functions related to reports and comments are removed as they are not part of Dicoding Story API
+
+// export async function getAllCommentsByReportId(reportId) { ... }
+// export async function storeNewCommentByReportId(reportId, { body }) { ... }
+
+
+// Notification related functions (assuming they match the Dicoding Story API notification endpoints)
 export async function subscribePushNotification({ endpoint, keys: { p256dh, auth } }) {
   const accessToken = getAccessToken();
+   if (!accessToken) {
+       console.error("Access token not available for subscribePushNotification");
+       return { error: true, message: "Authentication required" };
+   }
+
   const data = JSON.stringify({
     endpoint,
     keys: { p256dh, auth },
@@ -192,6 +215,10 @@ export async function subscribePushNotification({ endpoint, keys: { p256dh, auth
 
 export async function unsubscribePushNotification({ endpoint }) {
   const accessToken = getAccessToken();
+   if (!accessToken) {
+       console.error("Access token not available for unsubscribePushNotification");
+       return { error: true, message: "Authentication required" };
+   }
   const data = JSON.stringify({
     endpoint,
   });
@@ -212,75 +239,8 @@ export async function unsubscribePushNotification({ endpoint }) {
   };
 }
 
-export async function sendReportToMeViaNotification(reportId) {
-  const accessToken = getAccessToken();
-
-  const fetchResponse = await fetch(ENDPOINTS.SEND_REPORT_TO_ME(reportId), {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-  const json = await fetchResponse.json();
-
-  return {
-    ...json,
-    ok: fetchResponse.ok,
-  };
-}
-
-export async function sendReportToUserViaNotification(reportId, { userId }) {
-  const accessToken = getAccessToken();
-  const data = JSON.stringify({
-    userId,
-  });
-
-  const fetchResponse = await fetch(ENDPOINTS.SEND_REPORT_TO_USER(reportId), {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${accessToken}`,
-    },
-    body: data,
-  });
-  const json = await fetchResponse.json();
-
-  return {
-    ...json,
-    ok: fetchResponse.ok,
-  };
-}
-
-export async function sendReportToAllUserViaNotification(reportId) {
-  const accessToken = getAccessToken();
-
-  const fetchResponse = await fetch(ENDPOINTS.SEND_REPORT_TO_ALL_USER(reportId), {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-  const json = await fetchResponse.json();
-
-  return {
-    ...json,
-    ok: fetchResponse.ok,
-  };
-}
-
-export async function sendCommentToReportOwnerViaNotification(reportId, commentId) {
-  const accessToken = getAccessToken();
-
-  const fetchResponse = await fetch(ENDPOINTS.SEND_COMMENT_TO_REPORT_OWNER(reportId, commentId), {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-  const json = await fetchResponse.json();
-
-  return {
-    ...json,
-    ok: fetchResponse.ok,
-  };
-}
+// Specific notification functions for reports/comments are removed
+// export async function sendReportToMeViaNotification(reportId) { ... }
+// export async function sendReportToUserViaNotification(reportId, { userId }) { ... }
+// export async function sendReportToAllUserViaNotification(reportId) { ... }
+// export async function sendCommentToReportOwnerViaNotification(reportId, commentId) { ... }
