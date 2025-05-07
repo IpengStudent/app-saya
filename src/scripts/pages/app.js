@@ -77,26 +77,49 @@ export default class App {
     });
   }
 
-  async renderPage() {
-  const url = getActiveRoute();
-  const route = routes[url];
- 
-  // Get page instance
-  const page = route();
- 
-  if (!document.startViewTransition) {
-    this.#content.innerHTML = await page.render();
-    await page.afterRender();
-    return;
-  }
-  
-  const transition = document.startViewTransition(async () => {
-    this.#content.innerHTML = await page.render();
-    await page.afterRender();
-  });
-  transition.updateCallbackDone.then(() => {
-    scrollTo({ top: 0, behavior: 'instant' });
-    this.#setupNavigationList();
-  });
- }
+ async renderPage() {
+    // Dapatkan pola rute dari hash URL
+    const url = getActiveRoute(); // Contoh: '/' atau '/reports/123' -> jadi '/reports/:id'
+
+    // Cari handler rute di objek routes
+    const route = routes[url]; // Contoh: routes['/'] atau routes['/reports/:id']
+
+    // <<< Tambahkan Pengecekan Ini >>>
+    // Periksa apakah rute ditemukan dan handler-nya adalah sebuah fungsi
+    if (!route || typeof route !== 'function') {
+        console.error(`Route tidak ditemukan atau handler bukan fungsi untuk URL: ${url}`);
+        // Tangani rute tidak ditemukan:
+        // Opsi Sederhana: Redirect ke halaman Home
+        location.hash = '/'; // Mengubah hash akan memicu renderPage() lagi untuk rute Home
+        return; // Hentikan proses rendering untuk rute yang salah
+
+        // Opsi Lain: Render halaman 404 Not Found (jika Anda memilikinya)
+        // const notFoundPage = new NotFoundPage(); // Asumsikan ada kelas NotFoundPage
+        // this.#content.innerHTML = await notFoundPage.render();
+        // await notFoundPage.afterRender();
+        // return;
+    }
+    // <<< Akhir Pengecekan >>>
+
+
+    // Jika rute ditemukan dan valid, dapatkan instance page/view dengan memanggil handler rute
+    const page = route(); // Baris ini sekarang hanya dipanggil jika 'route' adalah fungsi
+
+    // Lanjutkan proses rendering page seperti sebelumnya
+    if (!document.startViewTransition) {
+      this.#content.innerHTML = await page.render();
+      await page.afterRender();
+      return;
+    }
+
+    // ... sisa kode View Transition ...
+    const transition = document.startViewTransition(async () => {
+    this.#content.innerHTML = await page.render();
+    await page.afterRender();
+    });
+    transition.updateCallbackDone.then(() => {
+    scrollTo({ top: 0, behavior: 'instant' });
+    this.#setupNavigationList();
+    });
+  }
 }
