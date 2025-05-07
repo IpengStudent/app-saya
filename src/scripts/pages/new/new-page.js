@@ -13,12 +13,25 @@ import L from 'leaflet';
 // Jika marker Anda tidak muncul, coba tambahkan kode ini:
 // Pastikan path ke gambar icon benar sesuai struktur proyek Anda di node_modules
 try {
-    delete L.Icon.Default.prototype._getIconUrl;
-    L.Icon.Default.mergeOptions({
-        iconRetinaUrl: require('leaflet/dist/images/marker-icon-2x.png'),
-        iconUrl: require('leaflet/dist/images/marker-icon.png'),
-        shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
-    });
+    // Periksa apakah L.Icon.Default sudah ada sebelum mencoba menghapus _getIconUrl
+    if (L.Icon && L.Icon.Default && L.Icon.Default.prototype && L.Icon.Default.prototype._getIconUrl !== undefined) {
+         delete L.Icon.Default.prototype._getIconUrl;
+    }
+
+    // Cek jika require tersedia (misal menggunakan Webpack/Parcel)
+    if (typeof require === 'function') {
+        L.Icon.Default.mergeOptions({
+            iconRetinaUrl: require('leaflet/dist/images/marker-icon-2x.png'),
+            iconUrl: require('leaflet/dist/images/marker-icon.png'),
+            shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
+        });
+    } else {
+        console.warn("Require is not defined. Cannot set default Leaflet icon paths using require(). Markers might not appear.");
+        console.warn("Consider manually setting L.Icon.Default.imagePath or including marker images.");
+        // Alternatif jika require tidak tersedia (misal, di browser langsung atau ES Modules murni):
+        // L.Icon.Default.imagePath = './node_modules/leaflet/dist/images/';
+    }
+
 } catch (e) {
     console.error("Error configuring Leaflet default icon:", e);
     console.warn("Leaflet markers might not appear. Check Leaflet installation and icon paths.");
@@ -54,7 +67,7 @@ export default class NewPage {
           </div>
         </div>
       </section>
- 
+
       <section class="container">
         <div class="new-form__container">
           <form id="new-form" class="new-form">
@@ -144,8 +157,9 @@ export default class NewPage {
                   <div id="map-loading-container"></div>
                 </div>
                 <div class="new-form__location__lat-lng">
-                  <input type="number" name="latitude" value="-6.175389">
-                  <input type="number" name="longitude" value="106.827139">
+                  {/* Ditambahkan step="any" untuk menonaktifkan validasi step bawaan browser */}
+                  <input type="number" name="latitude" value="-6.175389" step="any">
+                  <input type="number" name="longitude" value="106.827139" step="any">
                 </div>
               </div>
             </div>
@@ -159,7 +173,28 @@ export default class NewPage {
         </div>
       </section>
 
-         `;
+     {/* Jika Anda menggunakan framework yang mendukung lifecycle hook 'disconnectedCallback'
+         atau serupa, implementasikan di sini */}
+     {/*
+     disconnectedCallback() {
+         console.log('NewPage disconnected from DOM, cleaning up resources.');
+         this.#stopCameraStream();
+         if (this.#map) {
+             this.#map.remove();
+             this.#map = null;
+         }
+         // Revoke Object URLs untuk foto yang tersisa jika belum dihapus
+         this.#takenDocumentations.forEach(picture => {
+            if (picture.objectUrl) {
+                 URL.revokeObjectURL(picture.objectUrl);
+                 console.log('Revoked object URL during disconnect:', picture.objectUrl);
+            }
+         });
+         this.#takenDocumentations = []; // Kosongkan array
+         console.log('All object URLs revoked and documentation array cleared.');
+     }
+     */}
+    `;
   }
 
   async afterRender() {
@@ -266,57 +301,57 @@ export default class NewPage {
   #setupForm() {
     // Pastikan form element sudah ada. #form seharusnya sudah di-assign di afterRender.
     if (!this.#form) {
-        console.error('#setupForm called but this.#form is not assigned!');
-        return;
-    }
+        console.error('#setupForm called but this.#form is not assigned!');
+        return;
+    }
 
 
     // --- Menambahkan Event Listener Submit dengan Debugging dan Validasi ---
     this.#form.addEventListener('submit', async (event) => {
       event.preventDefault(); // Mencegah refresh halaman default
 
-      // --- DEBUGGING & VALIDASI AWAL: Pastikan elemen form yang dibutuhkan ada ---
-      console.log('Submit event triggered. Checking required form elements...');
+      // --- DEBUGGING & VALIDasi AWAL: Pastikan elemen form yang dibutuhkan ada ---
+      console.log('Submit event triggered. Checking required form elements...');
 
-      // Mengambil referensi setiap elemen input yang dibutuhkan
-      // Menggunakan this.#form untuk memastikan elemen ada di dalam form yang benar
-      const titleElement = this.#form.elements.namedItem('title');
-      const damageLevelElement = this.#form.elements.namedItem('damageLevel');
-      const descriptionElement = this.#form.elements.namedItem('description');
-      const latitudeElement = this.#form.elements.namedItem('latitude'); // Ambil elemen latitude
-      const longitudeElement = this.#form.elements.namedItem('longitude'); // Ambil elemen longitude
-
-
-      // Log referensi elemen untuk debugging. Periksa console saat error terjadi.
-      console.log('Form elements references:');
-      console.log("Element 'title':", titleElement);
-      console.log("Element 'damageLevel':", damageLevelElement);
-      console.log("Element 'description':", descriptionElement);
-      console.log("Element 'latitude':", latitudeElement);
-      console.log("Element 'longitude':", longitudeElement);
-      // Note: #latitudeInput dan #longitudeInput adalah properti kelas,
-      // referensi lokal (latitudeElement, longitudeElement) lebih direct untuk cek di sini.
+      // Mengambil referensi setiap elemen input yang dibutuhkan
+      // Menggunakan this.#form untuk memastikan elemen ada di dalam form yang benar
+      const titleElement = this.#form.elements.namedItem('title');
+      const damageLevelElement = this.#form.elements.namedItem('damageLevel');
+      const descriptionElement = this.#form.elements.namedItem('description');
+      const latitudeElement = this.#form.elements.namedItem('latitude'); // Ambil elemen latitude
+      const longitudeElement = this.#form.elements.namedItem('longitude'); // Ambil elemen longitude
 
 
-      // Cek apakah ada elemen yang bernilai null atau undefined
-      let missingElements = [];
-      if (!titleElement) missingElements.push("'title'");
-      if (!damageLevelElement) missingElements.push("'damageLevel'");
-      if (!descriptionElement) missingElements.push("'description'");
-      if (!latitudeElement) missingElements.push("'latitude'");
-      if (!longitudeElement) missingElements.push("'longitude'");
+      // Log referensi elemen untuk debugging. Periksa console saat error terjadi.
+      console.log('Form elements references:');
+      console.log("Element 'title':", titleElement);
+      console.log("Element 'damageLevel':", damageLevelElement);
+      console.log("Element 'description':", descriptionElement);
+      console.log("Element 'latitude':", latitudeElement);
+      console.log("Element 'longitude':", longitudeElement);
+      // Note: #latitudeInput dan #longitudeInput adalah properti kelas,
+      // referensi lokal (latitudeElement, longitudeElement) lebih direct untuk cek di sini.
 
-      // Jika ada elemen yang hilang, log error dan beri feedback ke user, lalu hentikan proses
-      if (missingElements.length > 0) {
-           const errorMessage = `Missing required form elements: ${missingElements.join(', ')}. Cannot submit.`;
-           console.error(errorMessage);
-           alert(`Error: Beberapa bagian formulir tidak ditemukan (${missingElements.join(', ')}). Mohon hubungi dukungan teknis atau refresh halaman.`);
-           this.hideSubmitLoadingButton(); // Pastikan tombol submit tidak dalam keadaan loading
-           return; // Hentikan eksekusi fungsi submit di sini
-      }
-      // --- END DEBUGGING & VALIDASI AWAL ---
 
-      // Jika semua elemen ditemukan (sudah dipastikan tidak null), baru ambil nilainya
+      // Cek apakah ada elemen yang bernilai null atau undefined
+      let missingElements = [];
+      if (!titleElement) missingElements.push("'title'");
+      if (!damageLevelElement) missingElements.push("'damageLevel'");
+      if (!descriptionElement) missingElements.push("'description'");
+      if (!latitudeElement) missingElements.push("'latitude'");
+      if (!longitudeElement) missingElements.push("'longitude'");
+
+      // Jika ada elemen yang hilang, log error dan beri feedback ke user, lalu hentikan proses
+      if (missingElements.length > 0) {
+           const errorMessage = `Missing required form elements: ${missingElements.join(', ')}. Cannot submit.`;
+           console.error(errorMessage);
+           alert(`Error: Beberapa bagian formulir tidak ditemukan (${missingElements.join(', ')}). Mohon hubungi dukungan teknis atau refresh halaman.`);
+           this.hideSubmitLoadingButton(); // Pastikan tombol submit tidak dalam keadaan loading
+           return; // Hentikan eksekusi fungsi submit di sini
+      }
+      // --- END DEBUGGING & VALIDASI AWAL ---
+
+      // Jika semua elemen ditemukan (sudah dipastikan tidak null), baru ambil nilainya
       const data = {
         title: titleElement.value, // Gunakan referensi elemen yang sudah dicek
         damageLevel: damageLevelElement.value, // Gunakan referensi elemen yang sudah dicek
@@ -326,84 +361,84 @@ export default class NewPage {
         longitude: longitudeElement.value, // Gunakan referensi elemen longitude yang sudah dicek
       };
 
-      console.log('Collected data for submission:', data); // Log data yang berhasil dikumpulkan
+      console.log('Collected data for submission:', data); // Log data yang berhasil dikumpulkan
 
       // Panggil presenter untuk memproses data (presenter yang akan memanggil API)
       await this.#presenter.postNewReport(data);
     });
-    // --- Akhir Perubahan Besar pada listener submit ---
+    // --- Akhir Perubahan Besar pada listener submit ---
 
 
-    // Event listener untuk input file (Ambil Gambar) - Kode ini tetap sama seperti di versi sebelumnya
+    // Event listener untuk input file (Ambil Gambar) - Kode ini tetap sama seperti di versi sebelumnya
     const documentationsInput = document.getElementById('documentations-input');
-    if (documentationsInput) { // Tambahkan cek keamanan
-        documentationsInput.addEventListener('change', async (event) => {
-            this.#stopCameraStream(); // Hentikan stream kamera jika sedang aktif
-            // Reset state kamera UI jika perlu (ini bisa dipindahkan ke method terpisah)
-            const cameraContainer = document.getElementById('camera-container');
-            const openCameraButton = document.getElementById('open-documentations-camera-button');
-            const takePhotoButton = document.getElementById('take-photo-button');
-            const cameraPlaceholder = document.getElementById('camera-placeholder');
+    if (documentationsInput) { // Tambahkan cek keamanan
+        documentationsInput.addEventListener('change', async (event) => {
+            this.#stopCameraStream(); // Hentikan stream kamera jika sedang aktif
+            // Reset state kamera UI jika perlu (ini bisa dipindahkan ke method terpisah)
+            const cameraContainer = document.getElementById('camera-container');
+            const openCameraButton = document.getElementById('open-documentations-camera-button');
+            const takePhotoButton = document.getElementById('take-photo-button');
+            const cameraPlaceholder = document.getElementById('camera-placeholder');
 
-            if (cameraContainer) cameraContainer.classList.remove('open');
-            this.#isCameraOpen = false;
-             if (openCameraButton) openCameraButton.textContent = 'Buka Kamera';
-             if (cameraPlaceholder) cameraPlaceholder.style.display = 'block';
-             if (this.#videoElement) this.#videoElement.style.display = 'none';
-             if (takePhotoButton) takePhotoButton.style.display = 'none';
-
-
-            const files = event.target.files;
-            if (files.length > 0) {
-                const insertingPicturesPromises = Object.values(files).map(async (file) => {
-                    return await this.#addTakenPicture(file);
-                });
-                await Promise.all(insertingPicturesPromises);
-
-                await this.#populateTakenPictures();
-            }
-        });
-    } else {
-         console.warn('Documentations input element not found.');
-    }
+            if (cameraContainer) cameraContainer.classList.remove('open');
+            this.#isCameraOpen = false;
+             if (openCameraButton) openCameraButton.textContent = 'Buka Kamera';
+             if (cameraPlaceholder) cameraPlaceholder.style.display = 'block';
+             if (this.#videoElement) this.#videoElement.style.display = 'none';
+             if (takePhotoButton) takePhotoButton.style.display = 'none';
 
 
-    // Trigger klik input file saat tombol "Ambil Gambar" diklik - Kode ini tetap sama
+            const files = event.target.files;
+            if (files.length > 0) {
+                const insertingPicturesPromises = Object.values(files).map(async (file) => {
+                    return await this.#addTakenPicture(file);
+                });
+                await Promise.all(insertingPicturesPromises);
+
+                await this.#populateTakenPictures();
+            }
+        });
+    } else {
+         console.warn('Documentations input element not found.');
+    }
+
+
+    // Trigger klik input file saat tombol "Ambil Gambar" diklik - Kode ini tetap sama
     const documentationsInputButton = document.getElementById('documentations-input-button');
-    if (documentationsInputButton && documentationsInput) { // Tambahkan cek keamanan
-        documentationsInputButton.addEventListener('click', () => {
+    if (documentationsInputButton && documentationsInput) { // Tambahkan cek keamanan
+        documentationsInputButton.addEventListener('click', () => {
           documentationsInput.click(); // Trigger klik pada input file
         });
-    } else {
-        console.warn('Documentations input button or input not found.');
-    }
+    } else {
+        console.warn('Documentations input button or input not found.');
+    }
 
-    // Event listener "Buka Kamera" ada di afterRender, tidak perlu di sini.
+    // Event listener "Buka Kamera" ada di afterRender, tidak perlu di sini.
   }
 
   // --- Implementasi Peta (Leaflet) ---
   async initialMap() {
     console.log('Initializing map...');
 
-    // Pastikan elemen peta sudah ada di DOM
-    const mapElement = document.getElementById('map');
+    // Pastikan elemen peta sudah ada di DOM
+    const mapElement = document.getElementById('map');
     if (!mapElement) {
         console.error('Map element not found in initialMap. Cannot initialize map.');
         return; // Hentikan jika elemen peta tidak ada
     }
 
-    // Hentikan peta sebelumnya jika sudah ada (Penting untuk Single Page App)
-    // Ini mencegah multiple map instances pada elemen yang sama jika afterRender dipanggil ulang
-    if (this.#map) {
-        this.#map.remove();
-        this.#map = null; // Set null setelah dihapus
-        console.log('Previous map instance removed.');
-    }
+    // Hentikan peta sebelumnya jika sudah ada (Penting untuk Single Page App)
+    // Ini mencegah multiple map instances pada elemen yang sama jika afterRender dipanggil ulang
+    if (this.#map) {
+        this.#map.remove();
+        this.#map = null; // Set null setelah dihapus
+        console.log('Previous map instance removed.');
+    }
 
-    // Gunakan nilai awal dari input lat/lon jika ada dan valid, atau gunakan nilai default
-    // Pastikan #latitudeInput dan #longitudeInput sudah di-assign di afterRender
-    const initialLat = (this.#latitudeInput && !isNaN(parseFloat(this.#latitudeInput.value))) ? parseFloat(this.#latitudeInput.value) : -6.175399; // Default Monas
-    const initialLon = (this.#longitudeInput && !isNaN(parseFloat(this.#longitudeInput.value))) ? parseFloat(this.#longitudeInput.value) : 106.827139; // Default Monas
+    // Gunakan nilai awal dari input lat/lon jika ada dan valid, atau gunakan nilai default
+    // Pastikan #latitudeInput dan #longitudeInput sudah di-assign di afterRender
+    const initialLat = (this.#latitudeInput && !isNaN(parseFloat(this.#latitudeInput.value))) ? parseFloat(this.#latitudeInput.value) : -6.175399; // Default Monas
+    const initialLon = (this.#longitudeInput && !isNaN(parseFloat(this.#longitudeInput.value))) ? parseFloat(this.#longitudeInput.value) : 106.827139; // Default Monas
 
 
     // Inisialisasi peta Leaflet
@@ -414,44 +449,44 @@ export default class NewPage {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(this.#map);
 
-    // Tambahkan marker di lokasi awal
-    // Periksa apakah marker default perlu ditambahkan based on initial values
-    this.#marker = L.marker([initialLat, initialLon]).addTo(this.#map);
+    // Tambahkan marker di lokasi awal
+    // Periksa apakah marker default perlu ditambahkan based on initial values
+    this.#marker = L.marker([initialLat, initialLon]).addTo(this.#map);
 
 
     // Tambahkan event listener untuk klik pada peta
     this.#map.on('click', (e) => {
         const { lat, lng } = e.latlng;
 
-        // Pastikan input elements ada sebelum update valuenya
-        if (this.#latitudeInput && this.#longitudeInput) {
-            // Update nilai input latitude dan longitude di form
-            this.#latitudeInput.value = lat.toFixed(6); // Format sesuai kebutuhan, e.g., 6 desimal
-            this.#longitudeInput.value = lng.toFixed(6); // Format sesuai kebutuhan
+        // Pastikan input elements ada sebelum update valuenya
+        if (this.#latitudeInput && this.#longitudeInput) {
+            // Update nilai input latitude dan longitude di form
+            this.#latitudeInput.value = lat.toFixed(6); // Format sesuai kebutuhan, e.g., 6 desimal
+            this.#longitudeInput.value = lng.toFixed(6); // Format sesuai kebutuhan
 
-            // Update posisi marker (jika menggunakan marker)
-            if (this.#marker) {
-                this.#marker.setLatLng([lat, lng]);
-            } else {
-                 // Jika marker belum ada, buat baru
-                this.#marker = L.marker([lat, lng]).addTo(this.#map);
-            }
+            // Update posisi marker (jika menggunakan marker)
+            if (this.#marker) {
+                this.#marker.setLatLng([lat, lng]);
+            } else {
+                 // Jika marker belum ada, buat baru
+                this.#marker = L.marker([lat, lng]).addTo(this.#map);
+            }
 
-            console.log(`Lokasi dipilih: Lat ${lat.toFixed(6)}, Lng ${lng.toFixed(6)}`);
-        } else {
-             console.error('Latitude/Longitude input elements not found when map clicked.');
-        }
+            console.log(`Lokasi dipilih: Lat ${lat.toFixed(6)}, Lng ${lng.toFixed(6)}`);
+        } else {
+             console.error('Latitude/Longitude input elements not found when map clicked.');
+        }
     });
 
-    // Invalidate size jika kontainer awalnya tersembunyi atau ukurannya berubah setelah render
-    // Ini memastikan peta ditampilkan dengan benar. Mungkin perlu di-adjust delay-nya.
-    // Terutama penting jika elemen peta berada di dalam tab atau kontainer yang awalnya hidden.
-    setTimeout(() => {
-       if (this.#map) { // Periksa lagi kalau peta masih ada
-           this.#map.invalidateSize();
-           console.log('Map invalidateSize called after delay.');
-       }
-    }, 200); // Delay 200ms sebagai contoh
+    // Invalidate size jika kontainer awalnya tersembunyi atau ukurannya berubah setelah render
+    // Ini memastikan peta ditampilkan dengan benar. Mungkin perlu di-adjust delay-nya.
+    // Terutama penting jika elemen peta berada di dalam tab atau kontainer yang awalnya hidden.
+    setTimeout(() => {
+       if (this.#map) { // Periksa lagi kalau peta masih ada
+           this.#map.invalidateSize();
+           console.log('Map invalidateSize called after delay.');
+       }
+    }, 200); // Delay 200ms sebagai contoh
 
 
     console.log('Map initialized successfully.');
@@ -461,156 +496,156 @@ export default class NewPage {
   async #setupCamera() {
     console.log('Setting up camera...');
 
-    // Periksa apakah browser mendukung media devices API
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        console.error('Camera API not supported by your browser.');
-        alert('Fitur kamera tidak didukung di browser Anda.');
-        // Sembunyikan UI kamera jika tidak didukung
-        const openCameraButton = document.getElementById('open-documentations-camera-button');
-        const cameraContainer = document.getElementById('camera-container');
-        if (openCameraButton) openCameraButton.style.display = 'none';
-        if (cameraContainer) cameraContainer.innerHTML = '<p>Browser Anda tidak mendukung akses kamera.</p>';
-        return; // Hentikan proses setup kamera
-    }
+    // Periksa apakah browser mendukung media devices API
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.error('Camera API not supported by your browser.');
+        alert('Fitur kamera tidak didukung di browser Anda.');
+        // Sembunyikan UI kamera jika tidak didukung
+        const openCameraButton = document.getElementById('open-documentations-camera-button');
+        const cameraContainer = document.getElementById('camera-container');
+        if (openCameraButton) openCameraButton.style.display = 'none';
+        if (cameraContainer) cameraContainer.innerHTML = '<p>Browser Anda tidak mendukung akses kamera.</p>';
+        return; // Hentikan proses setup kamera
+    }
 
-    // Pastikan elemen video dan canvas tersedia (sudah di-assign di afterRender)
-    if (!this.#videoElement || !this.#canvasElement) {
-         console.error('Video or canvas elements not found for camera setup.');
-         alert('Terjadi kesalahan setup elemen kamera.');
-         return; // Hentikan proses
-    }
+    // Pastikan elemen video dan canvas tersedia (sudah di-assign di afterRender)
+    if (!this.#videoElement || !this.#canvasElement) {
+         console.error('Video or canvas elements not found for camera setup.');
+         alert('Terjadi kesalahan setup elemen kamera.');
+         return; // Hentikan proses
+    }
 
 
-    try {
-        // Jika sudah ada stream kamera aktif, hentikan dulu
-        this.#stopCameraStream();
+    try {
+        // Jika sudah ada stream kamera aktif, hentikan dulu
+        this.#stopCameraStream();
 
-        // Minta akses ke stream video (kamera)
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video: {
-                 facingMode: 'environment' // Coba gunakan kamera belakang jika ada
-                 // Atau biarkan default 'user' untuk kamera depan
-            }
-            // audio: false // Tidak butuh audio
-        });
-        this.#cameraStream = stream; // Simpan referensi stream
+        // Minta akses ke stream video (kamera)
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                 facingMode: 'environment' // Coba gunakan kamera belakang jika ada
+                 // Atau biarkan default 'user' untuk kamera depan
+            }
+            // audio: false // Tidak butuh audio
+        });
+        this.#cameraStream = stream; // Simpan referensi stream
 
-        // Sambungkan stream ke elemen video
-        this.#videoElement.srcObject = stream;
+        // Sambungkan stream ke elemen video
+        this.#videoElement.srcObject = stream;
 
-        // Tunggu video metadata dimuat sebelum play
-        await new Promise((resolve, reject) => { // Tambahkan reject untuk handle error
-            this.#videoElement.onloadedmetadata = () => {
-                resolve();
-            };
-            this.#videoElement.onerror = (error) => { // Handle error saat memuat metadata
-                 console.error('Error loading video metadata:', error);
-                 reject(new Error('Error loading video metadata'));
-            };
-             // Tambahkan timeout jika metadata tidak kunjung load
-             setTimeout(() => reject(new Error('Timeout loading video metadata')), 5000); // 5 detik timeout
-        });
+        // Tunggu video metadata dimuat sebelum play
+        await new Promise((resolve, reject) => { // Tambahkan reject untuk handle error
+            this.#videoElement.onloadedmetadata = () => {
+                resolve();
+            };
+            this.#videoElement.onerror = (error) => { // Handle error saat memuat metadata
+                 console.error('Error loading video metadata:', error);
+                 reject(new Error('Error loading video metadata'));
+            };
+             // Tambahkan timeout jika metadata tidak kunjung load
+             setTimeout(() => reject(new Error('Timeout loading video metadata')), 5000); // 5 detik timeout
+        });
 
-        await this.#videoElement.play(); // Putar video
+        await this.#videoElement.play(); // Putar video
 
-        console.log('Camera stream started successfully.');
+        console.log('Camera stream started successfully.');
 
-    } catch (error) {
-        console.error('Error accessing camera:', error);
-        let errorMessage = 'Gagal mengakses kamera.';
-        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-            errorMessage = 'Akses kamera ditolak. Mohon izinkan akses kamera di pengaturan browser.';
-        } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-             errorMessage = 'Tidak ada kamera yang ditemukan di perangkat Anda.';
-        } else if (error.name === 'NotReadableError') {
-             errorMessage = 'Kamera sedang digunakan oleh aplikasi lain.';
-        } else {
-             errorMessage = `Error kamera: ${error.message}`;
-        }
-        alert(errorMessage);
+    } catch (error) {
+        console.error('Error accessing camera:', error);
+        let errorMessage = 'Gagal mengakses kamera.';
+        if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+            errorMessage = 'Akses kamera ditolak. Mohon izinkan akses kamera di pengaturan browser.';
+        } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+             errorMessage = 'Tidak ada kamera yang ditemukan di perangkat Anda.';
+        } else if (error.name === 'NotReadableError') {
+             errorMessage = 'Kamera sedang digunakan oleh aplikasi lain.';
+        } else {
+             errorMessage = `Error kamera: ${error.message}`;
+        }
+        alert(errorMessage);
 
-        // Sembunyikan UI kamera dan tampilkan pesan error jika gagal
-        const openCameraButton = document.getElementById('open-documentations-camera-button');
-        const cameraContainer = document.getElementById('camera-container');
-        const takePhotoButton = document.getElementById('take-photo-button');
-        const cameraPlaceholder = document.getElementById('camera-placeholder');
+        // Sembunyikan UI kamera dan tampilkan pesan error jika gagal
+        const openCameraButton = document.getElementById('open-documentations-camera-button');
+        const cameraContainer = document.getElementById('camera-container');
+        const takePhotoButton = document.getElementById('take-photo-button');
+        const cameraPlaceholder = document.getElementById('camera-placeholder');
 
-        // Reset state UI kamera
-        if (cameraContainer) cameraContainer.classList.remove('open');
-        this.#isCameraOpen = false;
-        if (openCameraButton) openCameraButton.textContent = 'Buka Kamera';
-        if (cameraPlaceholder) {
-             cameraPlaceholder.style.display = 'block';
-             cameraPlaceholder.textContent = errorMessage; // Tampilkan pesan error di placeholder
-        }
-        if (this.#videoElement) this.#videoElement.style.display = 'none';
-        if (takePhotoButton) takePhotoButton.style.display = 'none';
-    }
+        // Reset state UI kamera
+        if (cameraContainer) cameraContainer.classList.remove('open');
+        this.#isCameraOpen = false;
+        if (openCameraButton) openCameraButton.textContent = 'Buka Kamera';
+        if (cameraPlaceholder) {
+             cameraPlaceholder.style.display = 'block';
+             cameraPlaceholder.textContent = errorMessage; // Tampilkan pesan error di placeholder
+        }
+        if (this.#videoElement) this.#videoElement.style.display = 'none';
+        if (takePhotoButton) takePhotoButton.style.display = 'none';
+    }
   }
 
     // Metode untuk menghentikan stream kamera
     #stopCameraStream() {
-        console.log('Attempting to stop camera stream...');
+        console.log('Attempting to stop camera stream...');
         if (this.#cameraStream) {
             this.#cameraStream.getTracks().forEach(track => {
-                 if (track.readyState === 'live') { // Hentikan hanya jika track aktif
-                      track.stop();
-                     console.log('Camera track stopped.');
-                 }
-            });
+                 if (track.readyState === 'live') { // Hentikan hanya jika track aktif
+                      track.stop();
+                     console.log('Camera track stopped.');
+                 }
+            });
             this.#cameraStream = null; // Hapus referensi stream
             console.log('Camera stream reference cleared.');
 
             // Opsional: Hentikan pemutaran video dan kosongkan srcObject
             if (this.#videoElement) {
-                 this.#videoElement.pause();
-                 this.#videoElement.srcObject = null; // Penting untuk melepaskan stream dari video element
-                 console.log('Video element srcObject cleared.');
-            }
+                 this.#videoElement.pause();
+                 this.#videoElement.srcObject = null; // Penting untuk melepaskan stream dari video element
+                 console.log('Video element srcObject cleared.');
+            }
         } else {
-             console.log('No active camera stream to stop.');
-        }
+             console.log('No active camera stream to stop.');
+        }
     }
 
     // Metode untuk mengambil foto dari stream kamera
     #takePicture() {
         console.log('Attempting to take picture...');
-        // Cek keamanan: pastikan elemen dan stream siap
+        // Cek keamanan: pastikan elemen dan stream siap
         if (!this.#videoElement || !this.#canvasElement || !this.#videoElement.srcObject || this.#videoElement.readyState !== this.#videoElement.HAVE_ENOUGH_DATA) {
             console.error('Video element not ready or camera stream not active for taking picture.');
             alert('Kamera belum siap atau tidak aktif.');
             return;
         }
 
-        // Set ukuran canvas sesuai ukuran video
-        this.#canvasElement.width = this.#videoElement.videoWidth;
-        this.#canvasElement.height = this.#videoElement.videoHeight;
+        // Set ukuran canvas sesuai ukuran video
+        this.#canvasElement.width = this.#videoElement.videoWidth;
+        this.#canvasElement.height = this.#videoElement.videoHeight;
 
-        // Gambar frame video saat ini ke canvas
-        const context = this.#canvasElement.getContext('2d');
-        context.drawImage(this.#videoElement, 0, 0, this.#videoElement.videoWidth, this.#videoElement.videoHeight);
-        console.log(`Drew frame onto canvas (${this.#canvasElement.width}x${this.#canvasElement.height}).`);
+        // Gambar frame video saat ini ke canvas
+        const context = this.#canvasElement.getContext('2d');
+        context.drawImage(this.#videoElement, 0, 0, this.#videoElement.videoWidth, this.#videoElement.videoHeight);
+        console.log(`Drew frame onto canvas (${this.#canvasElement.width}x${this.#canvasElement.height}).`);
 
 
-        // Konversi isi canvas ke Blob
-        // Kualitas 1.0 (terbaik), format image/png
-        this.#canvasElement.toBlob(async (blob) => {
-            if (blob) {
-                console.log('Canvas converted to Blob (size:', blob.size, 'type:', blob.type, ').');
-                // Tambahkan Blob ke array dokumentasi
-                // Metode #addTakenPicture sudah menangani objek Blob
-                await this.#addTakenPicture(blob);
-                // Update tampilan daftar foto
-                await this.#populateTakenPictures();
-                console.log('Picture successfully added to documentation.');
+        // Konversi isi canvas ke Blob
+        // Kualitas 1.0 (terbaik), format image/png
+        this.#canvasElement.toBlob(async (blob) => {
+            if (blob) {
+                console.log('Canvas converted to Blob (size:', blob.size, 'type:', blob.type, ').');
+                // Tambahkan Blob ke array dokumentasi
+                // Metode #addTakenPicture sudah menangani objek Blob
+                await this.#addTakenPicture(blob);
+                // Update tampilan daftar foto
+                await this.#populateTakenPictures();
+                console.log('Picture successfully added to documentation.');
 
-                // Opsional: Beri feedback visual ke user (misal, flash effect di UI)
+                // Opsional: Beri feedback visual ke user (misal, flash effect di UI)
 
-            } else {
-                console.error('Failed to convert canvas to blob.');
-                alert('Gagal mengambil foto.');
-            }
-        }, 'image/png', 1.0); // Format gambar dan kualitas
+            } else {
+                console.error('Failed to convert canvas to blob.');
+                alert('Gagal mengambil foto.');
+            }
+        }, 'image/png', 1.0); // Format gambar dan kualitas
 
     }
 
@@ -620,58 +655,59 @@ export default class NewPage {
     console.log('Adding taken picture...', image);
     let blob = image;
 
-    // Jika input BUKAN instance Blob atau File, coba konversi (misal dari base64 string)
-    // File adalah turunan dari Blob, jadi cukup cek Blob
+    // Jika input BUKAN instance Blob atau File, coba konversi (misal dari base64 string)
+    // File adalah turunan dari Blob, jadi cukup cek Blob
     if (!(image instanceof Blob)) {
-        console.warn('Input to #addTakenPicture is not a Blob, attempting conversion (assuming Base64 string).');
-        // Asumsi input adalah string base64 jika bukan Blob
-        try {
-            blob = await convertBase64ToBlob(image, 'image/png');
-            if (!blob) throw new Error('Conversion to Blob failed.');
-             console.log('Conversion from non-Blob successful.');
-        } catch (error) {
-            console.error('Failed to convert image to Blob:', error);
-            alert('Gagal memproses gambar.');
-            return; // Hentikan jika konversi gagal
-        }
+        console.warn('Input to #addTakenPicture is not a Blob, attempting conversion (assuming Base64 string).');
+        // Asumsi input adalah string base64 jika bukan Blob
+        try {
+            blob = await convertBase64ToBlob(image, 'image/png');
+            if (!blob) throw new Error('Conversion to Blob failed.');
+             console.log('Conversion from non-Blob successful.');
+        } catch (error) {
+            console.error('Failed to convert image to Blob:', error);
+            alert('Gagal memproses gambar.');
+            return; // Hentikan jika konversi gagal
+        }
     } else {
-        console.log('Input is already a Blob/File.');
-    }
+        console.log('Input is already a Blob/File.');
+    }
 
 
     const newDocumentation = {
       id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
       blob: blob, // Blob atau File object
-      // Simpan juga object URL jika ingin merevokenya nanti secara spesifik
-      objectUrl: URL.createObjectURL(blob),
+      // Simpan juga object URL jika ingin merevokenya nanti secara spesifik
+      objectUrl: URL.createObjectURL(blob),
     };
     this.#takenDocumentations = [...this.#takenDocumentations, newDocumentation];
-    console.log('Documentation added:', newDocumentation.id, 'Total:', this.#takenDocumentations.length);
+    console.log('Documentation added:', newDocumentation.id, 'Total:', this.#takenDocumentations.length);
   }
 
   // Metode yang sudah ada (dengan perbaikan DOM access dan event delegation + revoke URL)
   async #populateTakenPictures() {
-    console.log('Populating taken pictures list. Count:', this.#takenDocumentations.length);
+    console.log('Populating taken pictures list. Count:', this.#takenDocumentations.length);
     const documentationListElement = document.getElementById('documentations-taken-list');
-    if (!documentationListElement) {
-        console.error('Documentation list element not found in populateTakenPictures.');
-        return;
-    }
+    if (!documentationListElement) {
+        console.error('Documentation list element not found in populateTakenPictures.');
+        return; // Hentikan jika elemen tidak ada
+    }
 
-    // --- Gunakan Event Delegation untuk Tombol Hapus ---
-    // Hapus listener delegation sebelumnya jika ada (opsional, tergantung implementasi)
-    // Ini lebih aman jika populateTakenPictures dipanggil berkali-kali
-    // Cara paling pasti adalah menyimpan referensi listener atau menggunakannya di afterRender sekali
-    // documentationListElement.removeEventListener('click', this.#boundDeletePictureHandler); // Jika Anda menyimpan referensi
-    // this.#boundDeletePictureHandler = this.#handleDeletePictureClick.bind(this); // Buat handler terikat di constructor/afterRender
-    // documentationListElement.addEventListener('click', this.#boundDeletePictureHandler); // Tambahkan handler
+    // Revoke object URLs lama sebelum mengosongkan innerHTML
+    // Ini penting untuk mencegah memory leak jika populate dipanggil berulang kali
+    // Ini lebih aman daripada mencoba mencocokkan URL di DOM satu per satu
+    // saat menghapus item. Kita revoke semua URL saat list di-render ulang.
+    // URL untuk foto yang masih ada akan dibuat ulang di bawah.
+    documentationListElement.querySelectorAll('li img').forEach(img => {
+        if (img.src && img.src.startsWith('blob:')) {
+            // console.log('Revoking old object URL:', img.src); // Opsional log
+            URL.revokeObjectURL(img.src);
+        }
+    });
 
-    // Untuk saat ini, kita bisa mengandalkan innerHTML = '' yang akan menghapus listener lama
-    // Tapi Event Delegation itu sendiri yang merupakan pola yang baik, jadi listener ditambahkan
-    // SETELAH innerHTML di-set.
 
     const html = this.#takenDocumentations.reduce((accumulator, picture, currentIndex) => {
-      // Gunakan objectUrl yang disimpan
+      // Gunakan objectUrl yang disimpan (sudah dibuat di #addTakenPicture)
       const imageUrl = picture.objectUrl;
       return accumulator.concat(`
         <li class="new-form__documentations__outputs-item" data-pictureid="${picture.id}">
@@ -686,20 +722,50 @@ export default class NewPage {
     documentationListElement.innerHTML = html;
 
     // --- Gunakan Event Delegation untuk Tombol Hapus ---
-    // Tambahkan listener pada parent
-    // Hindari menambahkan listener berkali-kali jika populatePictures dipanggil sering.
-    // Jika memungkinkan, tambahkan listener delegation ini sekali saja di afterRender.
-    // Jika tidak bisa (karena elemen parent mungkin tidak ada di afterRender awal),
-    // pastikan logika ini tidak membuat listener duplikat.
-    // Untuk contoh ini, saya asumsikan ini dipanggil setelah DOM ada.
-    // Untuk robustness, Anda bisa tambahkan flag atau cek listener sudah ada.
+    // Tambahkan listener pada parent elemen daftar foto (#documentations-taken-list)
+    // Ini LEBIH EFFICIENT daripada menambahkan listener ke setiap tombol hapus.
+    // Listener ini sebaiknya ditambahkan SEKALI saja di afterRender.
+    // Jika listener ini DITAMBAHKAN DI DALAM populateTakenPictures,
+    // pastikan Anda menghapus listener sebelumnya sebelum menambahkannya lagi
+    // atau gunakan flag untuk memastikan hanya satu listener yang aktif.
 
-    // Contoh sederhana: Tambahkan listener delegation setiap kali, ini mungkin in-efficient tapi berfungsi
-    // Jika Anda memanggil populateTakenPictures() berkali-kali, Anda bisa menambahkan event listener
-    // ini di afterRender dan menggunakan event delegation secara persisten.
-    // Kode ini (listener di dalam populate) akan menghapus listener lama saat innerHTML di-set
-    // dan menambahkan yang baru.
+    // Karena ini di dalam populateTakenPictures, dan innerHTML = '' menghapus DOM lama,
+    // listener yang ditambahkan di sini juga akan hilang bersama DOM lama.
+    // Menambahkan listener baru setiap kali populate dijalankan mungkin tidak efisien
+    // tapi berfungsi dalam skenario ini.
 
+    // Alternatif yang lebih baik: Pindahkan event listener delegation ini ke afterRender.
+    // Contoh kode di afterRender:
+    /*
+    const documentationListElement = document.getElementById('documentations-taken-list');
+    if(documentationListElement) {
+        documentationListElement.addEventListener('click', (event) => {
+            const deleteButton = event.target.closest('button[data-deletepictureid]');
+            if (deleteButton) {
+                 const pictureId = deleteButton.dataset.deletepictureid;
+                 console.log('Delete button clicked for picture ID:', pictureId);
+
+                 const pictureToDelete = this.#takenDocumentations.find(p => p.id == pictureId);
+                 const objectUrlToRevoke = pictureToDelete ? pictureToDelete.objectUrl : null;
+
+                 const deleted = this.#removePicture(pictureId);
+                 if (deleted) {
+                      console.log(`Picture with id ${pictureId} was deleted from array.`);
+                      this.#populateTakenPictures(); // Perbarui tampilan
+
+                      if (objectUrlToRevoke) {
+                          URL.revokeObjectURL(objectUrlToRevoke);
+                          console.log('Revoked object URL:', objectUrlToRevoke);
+                      }
+                 } else {
+                      console.log(`Picture with id ${pictureId} was not found`);
+                 }
+            }
+        });
+    }
+    */
+
+    // Jika Anda tetap menambahkan listener di sini, kode di bawah ini adalah implementasinya:
     documentationListElement.addEventListener('click', (event) => {
         // Cek apakah target klik adalah tombol hapus atau anaknya
         const deleteButton = event.target.closest('button[data-deletepictureid]');
@@ -714,8 +780,7 @@ export default class NewPage {
             const deleted = this.#removePicture(pictureId);
             if (deleted) {
                  console.log(`Picture with id ${pictureId} was deleted from array.`);
-                 // Update tampilan daftar foto
-                 this.#populateTakenPictures(); // Memanggil ini akan me-render ulang list
+                 this.#populateTakenPictures(); // Memanggil ini akan me-render ulang list dan menambahkan listener delegation lagi
 
                  // Penting: Revoke URL objek Blob untuk membebaskan memori
                  if (objectUrlToRevoke) {
@@ -727,20 +792,32 @@ export default class NewPage {
             }
         }
     });
+
   }
 
-  // Metode yang sudah ada
+  // Metode yang sudah ada (dengan perbaikan logika filter)
   #removePicture(id) {
+    console.log('Removing picture with id:', id);
     const initialLength = this.#takenDocumentations.length;
-    // Filter array, pertahankan yang ID-nya TIDAK sesuai
-    this.#takenDocumentations = this.#takenDocumentations.filter((picture) => {
-      return picture.id != id; // Gunakan == atau === sesuai tipe ID
-    });
-    // Mengembalikan true jika ada yang dihapus (panjang array berkurang)
-    return this.#takenDocumentations.length < initialLength;
+    let removedPicture = null;
+
+    // Cari gambar yang akan dihapus untuk mendapatkan objectUrl-nya
+    const pictureIndex = this.#takenDocumentations.findIndex(picture => picture.id == id);
+
+    if (pictureIndex > -1) {
+        removedPicture = this.#takenDocumentations[pictureIndex];
+        // Hapus gambar dari array menggunakan splice
+        this.#takenDocumentations.splice(pictureIndex, 1);
+        console.log(`Picture with id ${id} found and removed from array.`);
+    } else {
+        console.warn(`Picture with id ${id} not found in array.`);
+    }
+
+    // Mengembalikan objek gambar yang dihapus (atau null jika tidak ditemukan)
+    return removedPicture; // Mengembalikan objek, bukan boolean lagi
   }
 
-  // Metode yang sudah ada (dengan pembersihan stream kamera)
+  // Metode yang sudah ada (dengan pembersihan stream kamera dan revoke URL)
   storeSuccessfully(message, data) {
     console.log('Store successful:', message, data);
     alert(message); // Tampilkan pesan sukses
